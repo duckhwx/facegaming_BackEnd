@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const base64 = require('file-base64');
 const image2base64 = require('image-to-base64');
 const path = require('path');
 const db = require('../banco/Sql');
@@ -74,11 +75,11 @@ exports.imgsToBase64 = async (pubId, files, pathUserImg) => new Promise((resolve
 });
 
 exports.imgToBase64 = (file, callback) => {
-	image2base64(file)
-		.then((img) => {
-			callback(`data:image/jpg;base64,${img}`);
-		})
-		.catch((err) => {
+	base64.encode(file, (err, fileBase64) => {
+		if (err) {
 			callback(null, err);
-		});
+		}
+
+		callback(`data:image/jpg;base64,${fileBase64}`);
+	});
 };

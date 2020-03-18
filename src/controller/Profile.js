@@ -10,15 +10,19 @@ const router = express.Router();
 
 const storage = multer.diskStorage({
 	destination: (req, file, cb) => {
+		const profPath = path.join(__dirname, '../../uploads/profile');
 		// eslint-disable-next-line no-useless-catch
 		try {
-			if (!fs.existsSync(path.join(__dirname, `../../uploads/profile/${req.headers.path}`))) {
-				fs.mkdirSync(path.join(__dirname, `../../uploads/profile/${req.headers.path}`));
+			if (!fs.existsSync(path.join(`${profPath}/${req.headers.path}`))) {
+				fs.mkdirSync(path.join(`${profPath}/${req.headers.path}`));
+			}
+			if (fs.existsSync(path.join(`${profPath}/${req.headers.path}/${req.headers.filename}`)) && req.headers.filename !== '') {
+				fs.unlinkSync(path.join(`${profPath}/${req.headers.path}/${req.headers.filename}`));
 			}
 		} catch (error) {
 			throw (error);
 		}
-		cb(null, path.join(__dirname, `../../uploads/profile/${req.headers.path}`));
+		cb(null, path.join(`${profPath}/${req.headers.path}`));
 	},
 	filename: (req, file, cb) => {
 		cb(null, Date.now().toString() + file.originalname.replace(' ', ''));
@@ -64,7 +68,7 @@ router.post('/setProfImg', upload.single('image'), (req, res) => {
 		total: 0,
 		data: '',
 	};
-	console.log('profile');
+
 	const { token } = req.headers;
 	const { userData } = utils.decodeJwt(token);
 
@@ -73,12 +77,11 @@ router.post('/setProfImg', upload.single('image'), (req, res) => {
 		fileName: req.file.filename,
 	};
 
-	Profile.setProfileImage(params, (statusSet, responseMessageSet, totalRecordsSet, resultSet) => {
+	Profile.setProfileImage(params, (statusSet, responseMessageSet) => {
 		response = {
 			error: statusSet,
 			message: responseMessageSet,
-			total: totalRecordsSet,
-			data: resultSet,
+			data: {},
 		};
 
 		if (response.error) {
@@ -89,7 +92,8 @@ router.post('/setProfImg', upload.single('image'), (req, res) => {
 		const imgPath = path.join(__dirname, `../../uploads/profile/${params.userId}/${req.file.filename}`);
 
 		utils.imgToBase64(imgPath, (img, error) => {
-			response.data = img;
+			response.data.img = img;
+			response.data.filename = req.file.filename;
 			res.send(response);
 		});
 	});
@@ -102,7 +106,7 @@ router.post('/setBackImg', upload.single('image'), (req, res) => {
 		total: 0,
 		data: '',
 	};
-	console.log('background');
+
 	const { token } = req.headers;
 	const { userData } = utils.decodeJwt(token);
 
@@ -111,12 +115,11 @@ router.post('/setBackImg', upload.single('image'), (req, res) => {
 		fileName: req.file.filename,
 	};
 
-	Profile.setBackgroundImage(params, (statusSet, responseMessageSet, totalRecordsSet, resultSet) => {
+	Profile.setBackgroundImage(params, (statusSet, responseMessageSet) => {
 		response = {
 			error: statusSet,
 			message: responseMessageSet,
-			total: totalRecordsSet,
-			data: resultSet,
+			data: {},
 		};
 
 		if (response.error) {
@@ -127,7 +130,8 @@ router.post('/setBackImg', upload.single('image'), (req, res) => {
 		const imgPath = path.join(__dirname, `../../uploads/profile/${params.userId}/${req.file.filename}`);
 
 		utils.imgToBase64(imgPath, (img, error) => {
-			response.data = img;
+			response.data.img = img;
+			response.data.filename = req.file.filename;
 			res.send(response);
 		});
 	});
@@ -165,11 +169,11 @@ router.get('/getProfileData', (req, res) => {
 		const filePaths = [
 			{
 				imgType: 'prof',
-				path: path.join(`${filePath}/${response.data.PROF_IMG}`),
+				path: path.join(`${filePath}/${response.data.PROF_IMG_NAME}`),
 			},
 			{
 				imgType: 'back',
-				path: path.join(`${filePath}/${response.data.BACK_IMG}`),
+				path: path.join(`${filePath}/${response.data.BACK_IMG_NAME}`),
 			},
 		];
 

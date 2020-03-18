@@ -99,7 +99,7 @@ exports.setProfileImage = (params, callback) => {
 					return;
 				}
 
-				callback(false, 'Imagem de perfil Alterada', affected, recordset);
+				callback(false, 'Imagem de perfil Alterada');
 			});
 		});
 	});
@@ -157,7 +157,7 @@ exports.setBackgroundImage = (params, callback) => {
 					return;
 				}
 
-				callback(false, 'Imagem de capa Alterada', affected, recordset);
+				callback(false, 'Imagem de capa Alterada');
 			});
 		});
 	});
@@ -171,9 +171,9 @@ exports.getProfileData = (params, callback) => {
 	let qry = '';
 	qry += 'SELECT TOP 1								   				';
 	qry += '	PROFILE_IMAGE.ID AS PROF_ID,   							';
-	qry += 'PROFILE_IMAGE.FILE_NAME AS PROF_IMG,						';
+	qry += 'PROFILE_IMAGE.FILE_NAME AS PROF_IMG_NAME,						';
 	qry += '	PROFILE_BACKGROUND.ID AS BACK_ID,						';
-	qry += 'PROFILE_BACKGROUND.FILE_NAME AS BACK_IMG,					';
+	qry += 'PROFILE_BACKGROUND.FILE_NAME AS BACK_IMG_NAME,					';
 	qry += '	PROFILE_IMAGE.USER_ID,									';
 	qry += 'USER_ACCOUNT.USERNAME										';
 	qry += '	FROM PROFILE_IMAGE						   				';
