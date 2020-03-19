@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const base64 = require('file-base64');
+const fs = require('fs');
 const image2base64 = require('image-to-base64');
 const path = require('path');
 const db = require('../banco/Sql');
@@ -50,25 +51,21 @@ exports.imgsToBase64 = async (pubId, files, pathUserImg) => new Promise((resolve
 		for (const file of files) {
 			// eslint-disable-next-line no-continue
 			if (file.PUBLICATION_ID !== pubId) continue;
-			image2base64(path.join(__dirname, `../uploads/${pubId}/${file.FILE_NAME}`))
-				.then((response) => {
-					array.push({
-						ID: file.ID,
-						FILE: `data:image/jpg;base64,${response}`,
-					});
-				})
-				.catch((err) => {
+			base64.encode(path.join(__dirname, `../uploads/${pubId}/${file.FILE_NAME}`), (err, base64file) => {
+				if (err) {
 					reject(err);
-				});
-		}
+				}
 
-		image2base64(pathUserImg)
-			.then((response) => {
 				array.push({
-					userImg: `data:image/jpg;base64,${response}`,
+					ID: file.ID,
+					FILE: `data:image/jpg;base64,${base64file}`,
 				});
+
+				if (array.length === files.length) {
+					resolve(array);
+				}
 			});
-		resolve(array);
+		}
 	} catch (err) {
 		reject(err);
 	}
@@ -83,3 +80,16 @@ exports.imgToBase64 = (file, callback) => {
 		callback(`data:image/jpg;base64,${fileBase64}`);
 	});
 };
+
+exports.imgToBase642 = (file) => new Promise((resolve, reject) => {
+	if (!fs.existsSync(file)) {
+		resolve('');
+	}
+	base64.encode(file, (err, fileBase64) => {
+		if (err) {
+			reject(err);
+		}
+
+		resolve(`data:image/jpg;base64,${fileBase64}`);
+	});
+});

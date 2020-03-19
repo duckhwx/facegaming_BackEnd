@@ -133,24 +133,47 @@ router.get('/selectPubs/:start', (req, res) => {
 					total: totalRecordsFile,
 					data: resultFile,
 				};
+				console.log(response.data);
 
 				const pathProfile = path.join(__dirname, '../../uploads/profile/');
 				async.each(pubs, (pub, callback) => {
 					const pathUserImg = `${pathProfile}/${pub.USER_ID}/${pub.FILE_NAME}`;
-					pub.FILES = [];
+					let pubFiles = [];
 
-					utils.imgsToBase64(pub.ID, resultFile, pathUserImg)
-						.then((bs64Files) => {
-							pub.FILE_NAME = bs64Files[bs64Files.length - 1];
-							pub.FILES = bs64Files.slice(0, -1);
-							return callback(null);
-						}).catch(async () => {
-							await pub.FILES.push({
+					pubFiles = resultFile.filter((file) => {
+						if (file.PUBLICATION_ID !== pub.ID) {
+							return false;
+						}
+						return file;
+					}).map((file) => file);
+
+					const p1 = utils.imgsToBase64(pub.ID, pubFiles, pathUserImg)
+						.then((bs64Files) => ({
+							error: false,
+							data: bs64Files,
+						}))
+						.catch(() => ({
+							error: true,
+						}));
+
+					const p2 = utils.imgToBase642(pathUserImg)
+						.then((responseImg) => responseImg);
+
+					Promise.all([p1, p2]).then((responseAll) => {
+						const [resp1, resp2] = responseAll;
+
+						if (resp1.error) {
+							pub.FILES.push({
 								error: true,
 								message: 'Houve um erro ao coletar o arquivo',
 							});
 							callback('Error');
-						});
+						}
+
+						pub.FILES = resp1;
+						pub.PROFILE_IMG = resp2;
+						callback(null);
+					});
 				}, (err) => {
 					response = {
 						error: false,

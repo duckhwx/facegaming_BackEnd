@@ -69,6 +69,7 @@ router.post('/setProfImg', upload.single('image'), (req, res) => {
 		data: '',
 	};
 
+	console.log('profile');
 	const { token } = req.headers;
 	const { userData } = utils.decodeJwt(token);
 
@@ -106,7 +107,7 @@ router.post('/setBackImg', upload.single('image'), (req, res) => {
 		total: 0,
 		data: '',
 	};
-
+	console.log('background');
 	const { token } = req.headers;
 	const { userData } = utils.decodeJwt(token);
 
@@ -160,6 +161,9 @@ router.get('/getProfileData', (req, res) => {
 			data: result,
 		};
 
+		response.data.PROF_IMG = '';
+		response.data.BACK_IMG = '';
+
 		if (response.error) {
 			res.send(response);
 			return;
@@ -176,31 +180,28 @@ router.get('/getProfileData', (req, res) => {
 				path: path.join(`${filePath}/${response.data.BACK_IMG_NAME}`),
 			},
 		];
+		let test = true;
 
 		async.each(filePaths, (imgPath, callback) => {
 			utils.imgToBase64(imgPath.path, (img, error) => {
 				if (error) {
-					return callback(imgPath.imgType);
+					test = false;
+					callback(true);
+					return;
 				}
 
-				if (imgPath.imgType === 'prof') {
-					response.data.PROF_IMG = img;
-					return callback(null);
+				if (test) {
+					if (imgPath.imgType === 'prof') {
+						response.data.PROF_IMG = img;
+						callback(null);
+					}
+					if (imgPath.imgType === 'back') {
+						response.data.BACK_IMG = img;
+						callback(null);
+					}
 				}
-
-				response.data.BACK_IMG = img;
-				return callback(null);
 			});
-		}, (type) => {
-			if (type) {
-				if (type === 'prof') {
-					response.data.PROF_IMG = '';
-					res.send(response.data);
-				}
-
-				response.data.BACK_IMG = '';
-			}
-
+		}, () => {
 			res.send(response.data);
 		});
 	});

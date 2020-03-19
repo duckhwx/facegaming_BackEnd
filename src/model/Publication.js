@@ -97,14 +97,14 @@ exports.getPublications = (params, callback) => {
 	qry += '	FROM															   		';
 	qry += 'PUBLICATION															   		';
 	qry += '	INNER JOIN USER_ACCOUNT ON (USER_ACCOUNT.ID = PUBLICATION.USER_ID) 		';
-	qry += '	INNER JOIN PROFILE_IMAGE ON (USER_ACCOUNT.ID = PROFILE_IMAGE.USER_ID)	';
+	qry += '	LEFT JOIN PROFILE_IMAGE ON (USER_ACCOUNT.ID = PROFILE_IMAGE.USER_ID)	';
 	qry += 'WHERE																   		';
 	qry += '	PUBLICATION.USER_ID = @USER_ID											';
 	if (params.usersId.length > 1) {
 		qry += 'OR PUBLICATION.USER_ID IN (@USERS_IDS)									';
 	}
 	qry += '	ORDER BY DATE_PUBLICATION DESC									   		';
-	qry += 'OFFSET @start ROWS													   		';
+	qry += 'OFFSET @START ROWS													   		';
 	qry += '	FETCH NEXT 10 ROWS ONLY											   		';
 
 	db.connect((dbConn, ps, err) => {
@@ -121,7 +121,6 @@ exports.getPublications = (params, callback) => {
 		ps.input('START', db.getInput('int'));
 
 		db.execute(ps, qry, param, (recordset, affected, errExec) => {
-			console.log(param);
 			if (errExec || recordset.rowsAffected <= 0) {
 				dbConn.close();
 				callback(true, 'Nenhuma publicação encontrada', 0, '');
@@ -220,7 +219,6 @@ exports.updatePub = (params, callback) => {
 		ps.input('PUB_ID', db.getInput('int'));
 
 		db.execute(ps, qry, param, (recordset, affected, errExec) => {
-			console.log(errExec);
 			if (errExec) {
 				dbConn.close();
 				callback(true, 'Erro ao atualizar Publicação');
