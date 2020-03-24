@@ -15,13 +15,13 @@ const storage = multer.diskStorage({
 	destination: (req, file, cb) => {
 		// eslint-disable-next-line no-useless-catch
 		try {
-			if (!fs.existsSync(path.join(__dirname, `../../uploads/${req.headers.path}`))) {
-				fs.mkdirSync(path.join(__dirname, `../../uploads/${req.headers.path}`));
+			if (!fs.existsSync(path.join(__dirname, `../../uploads/publications/${req.headers.path}`))) {
+				fs.mkdirSync(path.join(__dirname, `../../uploads/publications/${req.headers.path}`));
 			}
 		} catch (error) {
 			throw (error);
 		}
-		cb(null, (path.join(__dirname, `../../uploads/${req.headers.path}`)));
+		cb(null, (path.join(__dirname, `../../uploads/publications/${req.headers.path}`)));
 	},
 	filename: (req, file, cb) => {
 		cb(null, Date.now().toString() + file.originalname.replace(' ', ''));
@@ -58,6 +58,81 @@ router.post('/insertPub', (req, res) => {
 		};
 
 		res.send(response);
+	});
+});
+
+router.post('/updatePubText', (req, res) => {
+	let response = {
+		error: false,
+		message: '',
+		total: 0,
+		data: '',
+	};
+
+	const params = {
+		pubId: req.body.pubId,
+		textfield: req.body.textfield,
+	};
+
+	Publication.updatePubText(params, (status, responseMessage, totalRecords, result) => {
+		response = {
+			error: status,
+			message: responseMessage,
+			total: totalRecords,
+			data: result,
+		};
+
+		res.send(response);
+	});
+});
+
+router.post('/updatePubFiles', multer(upload).array('images', 4), (req, res) => {
+	let response = {
+		error: false,
+		message: '',
+		total: 0,
+		data: '',
+	};
+	const fileNames = [];
+	for (let index = 0; index < req.files.length; index += 1) {
+		const file = req.files[index];
+		fileNames.push(file.filename);
+	}
+	utils.clearFiles(path.join(__dirname, `../../uploads/publications/${req.headers.path}`), fileNames);
+
+	Publication.deleteFiles(req.headers.path, (status, responseMessage, totalRecords, result) => {
+		response = {
+			error: status,
+			message: responseMessage,
+			total: totalRecords,
+			data: result,
+		};
+
+		if (response.error) {
+			res.send(response);
+			return;
+		}
+
+		async.each(req.files, (file, callback) => {
+			Publication.insertFile(file, req.headers.path, (statusFile, responseMessageFile, totalRecordsFile, resultFile) => {
+				response = {
+					error: statusFile,
+					message: responseMessageFile,
+					total: totalRecordsFile,
+					data: resultFile,
+				};
+
+				if (statusFile) {
+					callback('error');
+					return;
+				}
+
+				callback(null);
+			});
+		},
+		() => {
+			res.send(response);
+		});
 	});
 });
 
@@ -133,12 +208,18 @@ router.get('/selectPubs/:start', (req, res) => {
 					total: totalRecordsFile,
 					data: resultFile,
 				};
-				console.log(response.data);
 
 				const pathProfile = path.join(__dirname, '../../uploads/profile/');
 				async.each(pubs, (pub, callback) => {
-					const pathUserImg = `${pathProfile}/${pub.USER_ID}/${pub.FILE_NAME}`;
 					let pubFiles = [];
+					const image = {
+						pathImg: `${pathProfile}/${pub.USER_ID}/${pub.FILE_NAME}`,
+						type: pub.FILE_TYPE,
+					};
+					pub.FILES = {
+						error: false,
+						data: [],
+					};
 
 					pubFiles = resultFile.filter((file) => {
 						if (file.PUBLICATION_ID !== pub.ID) {
@@ -147,45 +228,97 @@ router.get('/selectPubs/:start', (req, res) => {
 						return file;
 					}).map((file) => file);
 
-					const p1 = utils.imgsToBase64(pub.ID, pubFiles, pathUserImg)
-						.then((bs64Files) => ({
+					const p1 = utils.imgToBase64(image)
+						.then((profImg) => profImg);
+
+					const p2 = utils.imgsToBase64Pubs(pub.ID, pubFiles)
+						.then((files) => ({
 							error: false,
-							data: bs64Files,
+							data: files,
 						}))
 						.catch(() => ({
 							error: true,
 						}));
 
-					const p2 = utils.imgToBase642(pathUserImg)
-						.then((responseImg) => responseImg);
+					Promise.all([p1, p2]).then((promiseResp) => {
+						const [promise1, promise2] = promiseResp;
+						pub.PROFILE_IMG = promise1;
 
-					Promise.all([p1, p2]).then((responseAll) => {
-						const [resp1, resp2] = responseAll;
-
-						if (resp1.error) {
-							pub.FILES.push({
+						if (promise2.error) {
+							pub.FILES = {
 								error: true,
-								message: 'Houve um erro ao coletar o arquivo',
-							});
-							callback('Error');
+								data: '',
+							};
+							callback(null);
+							return;
 						}
-
-						pub.FILES = resp1;
-						pub.PROFILE_IMG = resp2;
+						pub.FILES.data = promise2.data;
 						callback(null);
 					});
-				}, (err) => {
-					response = {
-						error: false,
-						data: pubs,
-					};
-					if (err) {
-						response.error = 'files';
-						res.send(response);
-						return;
-					}
-					res.send(response);
+				}, () => {
+					res.send(pubs);
 				});
+			});
+		});
+	});
+});
+
+router.get('/selectPub/:pubId', (req, res) => {
+	let response = {
+		error: false,
+		message: '',
+		total: 0,
+		data: '',
+	};
+
+	const { pubId } = req.params;
+
+	Publication.getPublication(pubId, (status, responseMessage, totalRecords, result) => {
+		response = {
+			error: status,
+			message: responseMessage,
+			total: totalRecords,
+			data: result,
+		};
+
+		if (response.error) {
+			res.send(response);
+		}
+
+		const publication = response.data;
+
+		Publication.getFiles(pubId, (statusFile, responseMessageFile, totalRecordsFile, resultFile) => {
+			response = {
+				error: statusFile,
+				message: responseMessageFile,
+				total: totalRecordsFile,
+				data: resultFile,
+			};
+
+			if (response.error) {
+				res.send(publication);
+			}
+
+			publication.files = resultFile;
+			const pathPubFiles = path.join(__dirname, `../../uploads/publications/${pubId}`);
+
+			async.eachOf(publication.files, (file, key, callback) => {
+				const image = {
+					pathImg: path.join(`${pathPubFiles}/${file.FILE_NAME}`),
+					type: file.FILE_TYPE,
+				};
+
+				utils.imgToBase64(image)
+					.then((img) => {
+						file.BS64FILE = img;
+						callback(null);
+					})
+					.catch((err) => {
+
+					});
+			},
+			() => {
+				res.send(publication);
 			});
 		});
 	});

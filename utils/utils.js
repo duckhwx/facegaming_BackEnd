@@ -44,21 +44,24 @@ exports.deleteFileIncertions = (pubId) => {
 	});
 };
 
-exports.imgsToBase64 = async (pubId, files, pathUserImg) => new Promise((resolve, reject) => {
+exports.imgsToBase64Pubs = async (pubId, files) => new Promise((resolve, reject) => {
 	const array = [];
+	if (files.length < 1) {
+		resolve('');
+	}
 	try {
 		// eslint-disable-next-line no-restricted-syntax
 		for (const file of files) {
 			// eslint-disable-next-line no-continue
 			if (file.PUBLICATION_ID !== pubId) continue;
-			base64.encode(path.join(__dirname, `../uploads/${pubId}/${file.FILE_NAME}`), (err, base64file) => {
+			base64.encode(path.join(__dirname, `../uploads/publications/${pubId}/${file.FILE_NAME}`), (err, base64file) => {
 				if (err) {
 					reject(err);
 				}
-
 				array.push({
 					ID: file.ID,
-					FILE: `data:image/jpg;base64,${base64file}`,
+					FILE: `data:${file.FILE_TYPE};base64,${base64file}`,
+					FILE_TYPE: file.FILE_TYPE,
 				});
 
 				if (array.length === files.length) {
@@ -71,25 +74,27 @@ exports.imgsToBase64 = async (pubId, files, pathUserImg) => new Promise((resolve
 	}
 });
 
-exports.imgToBase64 = (file, callback) => {
-	base64.encode(file, (err, fileBase64) => {
-		if (err) {
-			callback(null, err);
-		}
-
-		callback(`data:image/jpg;base64,${fileBase64}`);
-	});
-};
-
-exports.imgToBase642 = (file) => new Promise((resolve, reject) => {
-	if (!fs.existsSync(file)) {
+exports.imgToBase64 = (file) => new Promise((resolve, reject) => {
+	if (!fs.existsSync(file.pathImg)) {
 		resolve('');
 	}
-	base64.encode(file, (err, fileBase64) => {
+	base64.encode(file.pathImg, (err, fileBase64) => {
 		if (err) {
 			reject(err);
 		}
 
-		resolve(`data:image/jpg;base64,${fileBase64}`);
+		resolve(`data:${file.type};base64,${fileBase64}`);
 	});
 });
+
+exports.clearFiles = (pathPub, fileNames) => {
+	fs.readdir(pathPub, (err, files) => {
+		for (let index = 0; index < files.length; index += 1) {
+			const file = files[index];
+
+			if (!fileNames.includes(file)) {
+				fs.unlinkSync(path.join(`${pathPub}/${file}`));
+			}
+		}
+	});
+};

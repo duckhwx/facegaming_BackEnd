@@ -50,6 +50,7 @@ exports.setProfileImage = (params, callback) => {
 	const param = {
 		ID: params.userId,
 		FILENAME: params.fileName,
+		FILETYPE: params.fileType,
 	};
 	let qry = '';
 	qry += 'SELECT											';
@@ -75,22 +76,24 @@ exports.setProfileImage = (params, callback) => {
 				qry = 'UPDATE										';
 				qry += '	PROFILE_IMAGE							';
 				qry += 'SET											';
-				qry += '	PROFILE_IMAGE.FILE_NAME = @FILENAME		';
-				qry += 'WHERE PROFILE_IMAGE.USER_ID = @ID			';
+				qry += '	PROFILE_IMAGE.FILE_NAME = @FILENAME,	';
+				qry += 'PROFILE_IMAGE.FILE_TYPE = @FILETYPE			';
+				qry += '	WHERE PROFILE_IMAGE.USER_ID = @ID		';
 			}
 
 			if (quickRecordset.rowsAffected < 1) {
 				qry = 'INSERT									  	 		  ';
 				qry += '	INTO									  		  ';
 				qry += 'PROFILE_IMAGE								  		  ';
-				qry += '	(ID, USER_ID, FILE_NAME)				  		  ';
+				qry += '	(ID, USER_ID, FILE_NAME, FILE_TYPE)		  		  ';
 				qry += 'VALUES									  	  		  ';
 				qry += '	((SELECT ISNULL(MAX(Id)+1,1) FROM PROFILE_IMAGE), ';
-				qry += '@ID, @FILENAME)						  		  		  ';
+				qry += '@ID, @FILENAME, @FILETYPE)			  		  		  ';
 			}
 
 			ps.input('ID', db.getInput('int'));
 			ps.input('FILENAME', db.getInput('varchar', '64'));
+			ps.input('FILETYPE', db.getInput('varchar', '24'));
 
 			db.execute(ps, qry, param, (recordset, affected, errExec) => {
 				if (errExec) {
@@ -109,6 +112,7 @@ exports.setBackgroundImage = (params, callback) => {
 	const param = {
 		ID: params.userId,
 		FILENAME: params.fileName,
+		FILETYPE: params.fileType,
 	};
 	let qry = '';
 	qry += 'SELECT												';
@@ -134,21 +138,23 @@ exports.setBackgroundImage = (params, callback) => {
 				qry = 'UPDATE												';
 				qry += '	PROFILE_BACKGROUND								';
 				qry += 'SET													';
-				qry += '	PROFILE_BACKGROUND.FILE_NAME = @FILENAME		';
-				qry += 'WHERE PROFILE_BACKGROUND.USER_ID = @ID				';
+				qry += '	PROFILE_BACKGROUND.FILE_NAME = @FILENAME,		';
+				qry += 'PROFILE_BACKGROUND.FILE_TYPE = @FILETYPE			';
+				qry += '	WHERE PROFILE_BACKGROUND.USER_ID = @ID			';
 			}
 
 			if (quickRecordset.rowsAffected < 1) {
 				qry = 'INSERT									  	 		  		';
 				qry += '	INTO									  		  		';
 				qry += 'PROFILE_BACKGROUND								  		  	';
-				qry += '	(ID, USER_ID, FILE_NAME)				  		  		';
+				qry += '	(ID, USER_ID, FILE_NAME, FILE_TYPE)		  		  		';
 				qry += 'VALUES									  	  		  		';
-				qry += '	((SELECT ISNULL(MAX(Id)+1,1) FROM PROFILE_BACKGROUND), ';
-				qry += '@ID, @FILENAME)						  		  		  		';
+				qry += '	((SELECT ISNULL(MAX(Id)+1,1) FROM PROFILE_BACKGROUND), 	';
+				qry += '@ID, @FILENAME, @FILETYPE)			  		  		  		';
 			}
 			ps.input('ID', db.getInput('int'));
 			ps.input('FILENAME', db.getInput('varchar', '64'));
+			ps.input('FILETYPE', db.getInput('varchar', '24'));
 
 			db.execute(ps, qry, param, (recordset, affected, errExec) => {
 				if (errExec) {
@@ -170,18 +176,18 @@ exports.getProfileData = (params, callback) => {
 
 	let qry = '';
 	qry += 'SELECT TOP 1								   				';
+	qry += '	USER_ACCOUNT.NAME AS USERNAME,							';
+	qry += 'USER_ACCOUNT.ID AS USER_ID,									';
 	qry += '	PROFILE_IMAGE.ID AS PROF_ID,   							';
-	qry += 'PROFILE_IMAGE.FILE_NAME AS PROF_IMG_NAME,						';
+	qry += 'PROFILE_IMAGE.FILE_NAME AS PROF_IMG_NAME,					';
 	qry += '	PROFILE_BACKGROUND.ID AS BACK_ID,						';
-	qry += 'PROFILE_BACKGROUND.FILE_NAME AS BACK_IMG_NAME,					';
-	qry += '	PROFILE_IMAGE.USER_ID,									';
-	qry += 'USER_ACCOUNT.USERNAME										';
-	qry += '	FROM PROFILE_IMAGE						   				';
-	qry += 'INNER JOIN USER_ACCOUNT						   				';
-	qry += '	ON PROFILE_IMAGE.USER_ID = USER_ACCOUNT.ID 				';
+	qry += 'PROFILE_BACKGROUND.FILE_NAME AS BACK_IMG_NAME				';
+	qry += '	FROM USER_ACCOUNT						   				';
+	qry += 'LEFT JOIN PROFILE_IMAGE						   				';
+	qry += '	ON USER_ACCOUNT.ID = PROFILE_IMAGE.USER_ID 				';
 	qry += 'LEFT JOIN PROFILE_BACKGROUND								';
 	qry += '	ON PROFILE_IMAGE.USER_ID = PROFILE_BACKGROUND.USER_ID	';
-	qry += 'WHERE PROFILE_IMAGE.USER_ID = @USER_ID		   				';
+	qry += 'WHERE USER_ACCOUNT.ID = @USER_ID		   					';
 	qry += '	ORDER BY PROFILE_IMAGE.ID DESC			   				';
 
 	db.connect((dbConn, ps, err) => {
@@ -192,7 +198,7 @@ exports.getProfileData = (params, callback) => {
 		}
 
 		ps.input('USER_ID', db.getInput('int'));
-
+		console.log(qry);
 		db.execute(ps, qry, param, (recordset, affected, errExec) => {
 			if (errExec) {
 				dbConn.close();

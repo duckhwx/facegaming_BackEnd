@@ -76,6 +76,7 @@ router.post('/setProfImg', upload.single('image'), (req, res) => {
 	const params = {
 		userId: userData.ID,
 		fileName: req.file.filename,
+		filetype: req.file.mimetype,
 	};
 
 	Profile.setProfileImage(params, (statusSet, responseMessageSet) => {
@@ -90,13 +91,20 @@ router.post('/setProfImg', upload.single('image'), (req, res) => {
 			return;
 		}
 
-		const imgPath = path.join(__dirname, `../../uploads/profile/${params.userId}/${req.file.filename}`);
+		const image = {
+			pathImg: path.join(__dirname, `../../uploads/profile/${params.userId}/${req.file.filename}`),
+			type: params.fileType,
+		};
 
-		utils.imgToBase64(imgPath, (img, error) => {
-			response.data.img = img;
-			response.data.filename = req.file.filename;
-			res.send(response);
-		});
+		utils.imgToBase64(image)
+			.then((img) => {
+				response.data.img = img;
+				response.data.filename = req.file.filename;
+				res.send(response);
+			})
+			.catch((err) => {
+				console.log(err);
+			});
 	});
 });
 
@@ -114,6 +122,7 @@ router.post('/setBackImg', upload.single('image'), (req, res) => {
 	const params = {
 		userId: userData.ID,
 		fileName: req.file.filename,
+		fileType: req.file.mimetype,
 	};
 
 	Profile.setBackgroundImage(params, (statusSet, responseMessageSet) => {
@@ -128,13 +137,20 @@ router.post('/setBackImg', upload.single('image'), (req, res) => {
 			return;
 		}
 
-		const imgPath = path.join(__dirname, `../../uploads/profile/${params.userId}/${req.file.filename}`);
+		const image = {
+			pathImg: path.join(__dirname, `../../uploads/profile/${params.userId}/${req.file.filename}`),
+			type: params.fileType,
+		};
 
-		utils.imgToBase64(imgPath, (img, error) => {
-			response.data.img = img;
-			response.data.filename = req.file.filename;
-			res.send(response);
-		});
+		utils.imgToBase64(image)
+			.then((img) => {
+				response.data.img = img;
+				response.data.filename = req.file.filename;
+				res.send(response);
+			})
+			.catch((err) => {
+				console.log(err);
+			});
 	});
 });
 
@@ -160,7 +176,7 @@ router.get('/getProfileData', (req, res) => {
 			total: totalRecords,
 			data: result,
 		};
-
+		console.log(response.data);
 		response.data.PROF_IMG = '';
 		response.data.BACK_IMG = '';
 

@@ -18,7 +18,6 @@ exports.createPub = (params, callback) => {
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
-			dbConn.close();
 			callback(true, err);
 			return;
 		}
@@ -64,7 +63,6 @@ exports.getFriends = (params, callback) => {
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
-			dbConn.close();
 			callback(true, err);
 			return;
 		}
@@ -90,26 +88,26 @@ exports.getPublications = (params, callback) => {
 	};
 
 	let qry = '';
-	qry += ' SELECT																   		';
-	qry += '	PUBLICATION.ID, PUBLICATION.TITLE,		   						   		';
-	qry += ' 	PUBLICATION.DATE_PUBLICATION, PUBLICATION.USER_ID,				   		';
-	qry += 'USER_ACCOUNT.USERNAME, PROFILE_IMAGE.FILE_NAME						   		';
-	qry += '	FROM															   		';
-	qry += 'PUBLICATION															   		';
-	qry += '	INNER JOIN USER_ACCOUNT ON (USER_ACCOUNT.ID = PUBLICATION.USER_ID) 		';
-	qry += '	LEFT JOIN PROFILE_IMAGE ON (USER_ACCOUNT.ID = PROFILE_IMAGE.USER_ID)	';
-	qry += 'WHERE																   		';
-	qry += '	PUBLICATION.USER_ID = @USER_ID											';
+	qry += 'SELECT																   	';
+	qry += '	PUBLICATION.ID, PUBLICATION.TITLE,		   						   	';
+	qry += 'PUBLICATION.DATE_PUBLICATION, PUBLICATION.USER_ID,				   		';
+	qry += '	USER_ACCOUNT.NAME AS USERNAME, 										';
+	qry += 'PROFILE_IMAGE.FILE_NAME, PROFILE_IMAGE.FILE_TYPE						';
+	qry += '	FROM															   	';
+	qry += 'PUBLICATION															   	';
+	qry += '	INNER JOIN USER_ACCOUNT ON (USER_ACCOUNT.ID = PUBLICATION.USER_ID) 	';
+	qry += 'LEFT JOIN PROFILE_IMAGE ON (USER_ACCOUNT.ID = PROFILE_IMAGE.USER_ID)	';
+	qry += '	WHERE																';
+	qry += 'PUBLICATION.USER_ID = @USER_ID											';
 	if (params.usersId.length > 1) {
-		qry += 'OR PUBLICATION.USER_ID IN (@USERS_IDS)									';
+		qry += 'OR PUBLICATION.USER_ID IN (@USERS_IDS)								';
 	}
-	qry += '	ORDER BY DATE_PUBLICATION DESC									   		';
-	qry += 'OFFSET @START ROWS													   		';
-	qry += '	FETCH NEXT 10 ROWS ONLY											   		';
+	qry += '	ORDER BY DATE_PUBLICATION DESC									   	';
+	qry += 'OFFSET @START ROWS													   	';
+	qry += '	FETCH NEXT 10 ROWS ONLY											   	';
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
-			dbConn.close();
 			callback(true, err);
 			return;
 		}
@@ -132,29 +130,65 @@ exports.getPublications = (params, callback) => {
 	});
 };
 
+exports.getPublication = (params, callback) => {
+	const param = {
+		PUB_ID: params,
+	};
+
+	let qry = '';
+	qry += 'SELECT										';
+	qry += '	ID, TITLE, DATE_PUBLICATION, USER_ID	';
+	qry += 'FROM										';
+	qry += '	PUBLICATION								';
+	qry += 'WHERE										';
+	qry += '	PUBLICATION.ID = @PUB_ID				';
+
+	db.connect((dbConn, ps, err) => {
+		if (err) {
+			callback(true, err);
+			return;
+		}
+
+		ps.input('PUB_ID', db.getInput('int'));
+
+		db.execute(ps, qry, param, (recordset, affected, errExec) => {
+			if (errExec || recordset.rowsAffected < 1) {
+				dbConn.close();
+				callback(true, 'Houve um erro ao coletar os dados da publicação');
+				return;
+			}
+
+			callback(false, '', affected, recordset.recordset[0]);
+		});
+	});
+};
+
 exports.insertFile = (params, id, callback) => {
 	const param = {
 		PUB_ID: id,
 		FILE_NAME: params.filename,
+		FILE_TYPE: params.mimetype,
 	};
+	console.log(param);
 	let qry = 'INSERT								 												 				';
 	qry += 'INTO																				 	 				';
-	qry += '	FILES								 												 				';
-	qry += '(ID, PUBLICATION_ID, FILE_NAME)			 												 				';
+	qry += '	FILE_PUB								 												 			';
+	qry += '(ID, PUBLICATION_ID, FILE_NAME, FILE_TYPE)			 												 	';
 	qry += '	VALUES								 																';
-	qry += '((SELECT ISNULL(MAX(Id)+1,1) FROM FILES),																';
+	qry += '((SELECT ISNULL(MAX(Id)+1,1) FROM FILE_PUB),															';
 	qry += '	@PUB_ID, 																							';
-	qry += '@FILE_NAME)													 											';
-
+	qry += '@FILE_NAME, 													 										';
+	qry += '	@FILE_TYPE)																							';
+console.log(qry);
 	db.connect((dbConn, ps, err) => {
 		if (err) {
-			dbConn.close();
 			callback(true, err);
 			return;
 		}
 
 		ps.input('PUB_ID', db.getInput('int'));
 		ps.input('FILE_NAME', db.getInput('varchar', '255'));
+		ps.input('FILE_TYPE', db.getInput('varchar', '24'));
 
 		db.execute(ps, qry, param, async (recordset, affected, errExec) => {
 			if (errExec) {
@@ -168,25 +202,20 @@ exports.insertFile = (params, id, callback) => {
 };
 
 exports.getFiles = (params, callback) => {
-	const param = {
-		IDS: params,
-	};
-
-	let qry = 'SELECT					  		  ';
-	qry += '	ID, PUBLICATION_ID, FILE_NAME	  ';
-	qry += 'FROM						  		  ';
-	qry += '	FILES					  		  ';
-	qry += 'WHERE						  		  ';
-	qry += `	PUBLICATION_ID IN (${param.IDS})  `;
+	let qry = 'SELECT					  		  			';
+	qry += '	ID, PUBLICATION_ID, FILE_NAME, FILE_TYPE	';
+	qry += 'FROM						  		  			';
+	qry += '	FILE_PUB					  		  		';
+	qry += 'WHERE						  		  			';
+	qry += `	PUBLICATION_ID IN (${params})  			`;
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
-			dbConn.close();
 			callback(true, err);
 			return;
 		}
 
-		db.execute(ps, qry, param, (recordset, affected, errExec) => {
+		db.execute(ps, qry, null, (recordset, affected, errExec) => {
 			if (errExec) {
 				dbConn.close();
 				callback(true, '');
@@ -197,10 +226,35 @@ exports.getFiles = (params, callback) => {
 	});
 };
 
-exports.updatePub = (params, callback) => {
+exports.deleteFiles = (params, callback) => {
+	let qry = '';
+	qry += 'DELETE						';
+	qry += 'FROM						';
+	qry += 'FILE_PUB					';
+	qry += 'WHERE						';
+	qry += `PUBLICATION_ID = ${params}	`;
+
+	db.connect((dbConn, ps, err) => {
+		if (err) {
+			callback(true, err);
+			return;
+		}
+		db.execute(ps, qry, null, (recordset, affected, errExec) => {
+			if (errExec) {
+				dbConn.close();
+				callback(true, 'Houve um erro ao atualizar os arquivos');
+				return;
+			}
+
+			callback(false, '', affected, recordset.recordset);
+		});
+	});
+};
+
+exports.updatePubText = (params, callback) => {
 	const param = {
+		PUB_ID: params.pubId,
 		TEXTFIELD: params.textfield,
-		PUB_ID: params.pubID,
 	};
 	let qry = '';
 	qry += 'UPDATE									';
@@ -210,7 +264,6 @@ exports.updatePub = (params, callback) => {
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
-			dbConn.close();
 			callback(true, err);
 			return;
 		}
