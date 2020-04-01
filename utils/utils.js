@@ -87,12 +87,12 @@ exports.imgToBase64 = (file) => new Promise((resolve, reject) => {
 	});
 });
 
-exports.clearFiles = (pathPub, fileNames) => {
+exports.clearFiles = (pathPub, deletedFiles) => {
 	fs.readdir(pathPub, (err, files) => {
 		for (let index = 0; index < files.length; index += 1) {
 			const file = files[index];
 
-			if (!fileNames.includes(file)) {
+			if (deletedFiles.includes(file)) {
 				fs.unlinkSync(path.join(`${pathPub}/${file}`));
 			}
 		}

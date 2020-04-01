@@ -61,6 +61,47 @@ router.post('/insertPub', (req, res) => {
 	});
 });
 
+router.post('/deleteFilesFromPubs', (req, res) => {
+	let response = {
+		error: false,
+		message: '',
+		total: 0,
+		data: '',
+	};
+
+	const { deletedFiles } = req.body;
+	const { pubId } = req.body;
+	const splittedFiles = {
+		ids: [],
+		fileNames: [],
+	};
+
+	for (let index = 0; index < deletedFiles.length; index += 1) {
+		const file = deletedFiles[index];
+		splittedFiles.ids.push(file.id);
+		splittedFiles.fileNames.push(file.name);
+	}
+
+	Publication.deleteFiles(splittedFiles.ids, (status, responseMessage, totalRecords, result) => {
+		response = {
+			error: status,
+			message: responseMessage,
+			total: totalRecords,
+			data: result,
+		};
+
+		if (result.rowsAffected < deletedFiles.length) {
+			res.send(response);
+			return;
+		}
+
+		if (deletedFiles.length > 0) {
+			utils.clearFiles(path.join(__dirname, `../../uploads/publications/${pubId}`), splittedFiles.fileNames);
+		}
+		res.send(response);
+	});
+});
+
 router.post('/updatePubText', (req, res) => {
 	let response = {
 		error: false,
@@ -73,6 +114,7 @@ router.post('/updatePubText', (req, res) => {
 		pubId: req.body.pubId,
 		textfield: req.body.textfield,
 	};
+
 
 	Publication.updatePubText(params, (status, responseMessage, totalRecords, result) => {
 		response = {
@@ -93,46 +135,26 @@ router.post('/updatePubFiles', multer(upload).array('images', 4), (req, res) => 
 		total: 0,
 		data: '',
 	};
-	const fileNames = [];
-	for (let index = 0; index < req.files.length; index += 1) {
-		const file = req.files[index];
-		fileNames.push(file.filename);
-	}
-	utils.clearFiles(path.join(__dirname, `../../uploads/publications/${req.headers.path}`), fileNames);
 
-	Publication.deleteFiles(req.headers.path, (status, responseMessage, totalRecords, result) => {
-		response = {
-			error: status,
-			message: responseMessage,
-			total: totalRecords,
-			data: result,
-		};
+	async.each(req.files, (file, callback) => {
+		Publication.insertFile(file, req.headers.path, (statusFile, responseMessageFile, totalRecordsFile, resultFile) => {
+			response = {
+				error: statusFile,
+				message: responseMessageFile,
+				total: totalRecordsFile,
+				data: resultFile,
+			};
 
-		if (response.error) {
-			res.send(response);
-			return;
-		}
+			if (statusFile) {
+				callback('error');
+				return;
+			}
 
-		async.each(req.files, (file, callback) => {
-			Publication.insertFile(file, req.headers.path, (statusFile, responseMessageFile, totalRecordsFile, resultFile) => {
-				response = {
-					error: statusFile,
-					message: responseMessageFile,
-					total: totalRecordsFile,
-					data: resultFile,
-				};
-
-				if (statusFile) {
-					callback('error');
-					return;
-				}
-
-				callback(null);
-			});
-		},
-		() => {
-			res.send(response);
+			callback(null);
 		});
+	},
+	() => {
+		res.send(response);
 	});
 });
 
@@ -183,7 +205,6 @@ router.get('/selectPubs/:start', (req, res) => {
 		Publication.getPublications(params, (statusPubs, responseMessagePubs, totalRecordsPubs, resultPubs) => {
 			response = {
 				error: statusPubs,
-				errorType: 'pubs',
 				message: responseMessagePubs,
 				total: totalRecordsPubs,
 				data: resultPubs,
@@ -206,7 +227,7 @@ router.get('/selectPubs/:start', (req, res) => {
 					error: statusFile,
 					message: responseMessageFile,
 					total: totalRecordsFile,
-					data: resultFile,
+					data: resultFile.recordset,
 				};
 
 				const pathProfile = path.join(__dirname, '../../uploads/profile/');
@@ -221,7 +242,7 @@ router.get('/selectPubs/:start', (req, res) => {
 						data: [],
 					};
 
-					pubFiles = resultFile.filter((file) => {
+					pubFiles = resultFile.recordset.filter((file) => {
 						if (file.PUBLICATION_ID !== pub.ID) {
 							return false;
 						}
@@ -275,31 +296,44 @@ router.get('/selectPub/:pubId', (req, res) => {
 
 	Publication.getPublication(pubId, (status, responseMessage, totalRecords, result) => {
 		response = {
-			error: status,
+			error: {
+				status,
+				type: 'text',
+			},
 			message: responseMessage,
 			total: totalRecords,
 			data: result,
 		};
 
-		if (response.error) {
+		if (response.error.status) {
 			res.send(response);
+			return;
 		}
 
 		const publication = response.data;
 
 		Publication.getFiles(pubId, (statusFile, responseMessageFile, totalRecordsFile, resultFile) => {
+			if (resultFile.rowsAffected < 1) {
+				res.send(response);
+				return;
+			}
 			response = {
-				error: statusFile,
+				error: {
+					status: statusFile,
+					type: 'files',
+				},
 				message: responseMessageFile,
 				total: totalRecordsFile,
-				data: resultFile,
+				data: resultFile.recordset,
 			};
 
-			if (response.error) {
-				res.send(publication);
+			if (response.error.status) {
+				response.data = publication;
+				res.send(response);
+				return;
 			}
 
-			publication.files = resultFile;
+			publication.files = resultFile.recordset;
 			const pathPubFiles = path.join(__dirname, `../../uploads/publications/${pubId}`);
 
 			async.eachOf(publication.files, (file, key, callback) => {
@@ -318,7 +352,8 @@ router.get('/selectPub/:pubId', (req, res) => {
 					});
 			},
 			() => {
-				res.send(publication);
+				response.data = publication;
+				res.send(response);
 			});
 		});
 	});

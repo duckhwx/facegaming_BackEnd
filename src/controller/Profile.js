@@ -69,14 +69,13 @@ router.post('/setProfImg', upload.single('image'), (req, res) => {
 		data: '',
 	};
 
-	console.log('profile');
 	const { token } = req.headers;
 	const { userData } = utils.decodeJwt(token);
 
 	const params = {
 		userId: userData.ID,
 		fileName: req.file.filename,
-		filetype: req.file.mimetype,
+		fileType: req.file.mimetype,
 	};
 
 	Profile.setProfileImage(params, (statusSet, responseMessageSet) => {
@@ -115,7 +114,7 @@ router.post('/setBackImg', upload.single('image'), (req, res) => {
 		total: 0,
 		data: '',
 	};
-	console.log('background');
+
 	const { token } = req.headers;
 	const { userData } = utils.decodeJwt(token);
 
@@ -176,47 +175,62 @@ router.get('/getProfileData', (req, res) => {
 			total: totalRecords,
 			data: result,
 		};
-		console.log(response.data);
-		response.data.PROF_IMG = '';
-		response.data.BACK_IMG = '';
 
 		if (response.error) {
 			res.send(response);
 			return;
 		}
 
+		response.data.PROF_IMG = '';
+		response.data.BACK_IMG = '';
+
 		const filePath = path.join(__dirname, `../../uploads/profile/${params.userID}/`);
-		const filePaths = [
-			{
+		const filePaths = [];
+
+		if (response.data.PROF_IMG_NAME) {
+			filePaths.push({
 				imgType: 'prof',
 				path: path.join(`${filePath}/${response.data.PROF_IMG_NAME}`),
-			},
-			{
+				mimeType: response.data.PROF_IMG_TYPE,
+			});
+		}
+
+		if (response.data.BACK_IMG_NAME) {
+			filePaths.push({
 				imgType: 'back',
 				path: path.join(`${filePath}/${response.data.BACK_IMG_NAME}`),
-			},
-		];
+				mimeType: response.data.BACK_IMG_TYPE,
+			});
+		}
 		let test = true;
 
+		if (filePaths.length < 1) {
+			res.send(response.data);
+			return;
+		}
+
 		async.each(filePaths, (imgPath, callback) => {
-			utils.imgToBase64(imgPath.path, (img, error) => {
-				if (error) {
+			utils.imgToBase64({
+				pathImg: imgPath.path,
+				type: imgPath.mimeType,
+			})
+				.then((img) => {
+					if (test) {
+						if (imgPath.imgType === 'prof') {
+							response.data.PROF_IMG = img;
+							callback(null);
+							return;
+						}
+						if (imgPath.imgType === 'back') {
+							response.data.BACK_IMG = img;
+							callback(null);
+						}
+					}
+				})
+				.catch(() => {
 					test = false;
 					callback(true);
-					return;
-				}
-
-				if (test) {
-					if (imgPath.imgType === 'prof') {
-						response.data.PROF_IMG = img;
-						callback(null);
-					}
-					if (imgPath.imgType === 'back') {
-						response.data.BACK_IMG = img;
-						callback(null);
-					}
-				}
-			});
+				});
 		}, () => {
 			res.send(response.data);
 		});

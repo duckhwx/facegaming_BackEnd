@@ -169,7 +169,7 @@ exports.insertFile = (params, id, callback) => {
 		FILE_NAME: params.filename,
 		FILE_TYPE: params.mimetype,
 	};
-	console.log(param);
+
 	let qry = 'INSERT								 												 				';
 	qry += 'INTO																				 	 				';
 	qry += '	FILE_PUB								 												 			';
@@ -179,7 +179,7 @@ exports.insertFile = (params, id, callback) => {
 	qry += '	@PUB_ID, 																							';
 	qry += '@FILE_NAME, 													 										';
 	qry += '	@FILE_TYPE)																							';
-console.log(qry);
+
 	db.connect((dbConn, ps, err) => {
 		if (err) {
 			callback(true, err);
@@ -196,6 +196,7 @@ console.log(qry);
 				await Utils.deleteFileIncertions(params.pubId);
 				callback(true, 'Erro ao publicar');
 			}
+
 			callback(false, 'Publicação cadastrada');
 		});
 	});
@@ -207,7 +208,7 @@ exports.getFiles = (params, callback) => {
 	qry += 'FROM						  		  			';
 	qry += '	FILE_PUB					  		  		';
 	qry += 'WHERE						  		  			';
-	qry += `	PUBLICATION_ID IN (${params})  			`;
+	qry += `	PUBLICATION_ID IN (${params})  				`;
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
@@ -221,32 +222,37 @@ exports.getFiles = (params, callback) => {
 				callback(true, '');
 				return;
 			}
-			callback(false, '', affected, recordset.recordset);
+
+			callback(false, '', affected, recordset);
 		});
 	});
 };
 
 exports.deleteFiles = (params, callback) => {
+	const param = {
+		IDS: params,
+	};
+
 	let qry = '';
-	qry += 'DELETE						';
-	qry += 'FROM						';
-	qry += 'FILE_PUB					';
-	qry += 'WHERE						';
-	qry += `PUBLICATION_ID = ${params}	`;
+	qry += 'DELETE							';
+	qry += '	FROM						';
+	qry += 'FILE_PUB						';
+	qry += '	WHERE						';
+	qry += `ID IN (${params})				`;
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
 			callback(true, err);
 			return;
 		}
-		db.execute(ps, qry, null, (recordset, affected, errExec) => {
+
+		db.execute(ps, qry, param, (recordset, affected, errExec) => {
 			if (errExec) {
 				dbConn.close();
 				callback(true, 'Houve um erro ao atualizar os arquivos');
 				return;
 			}
-
-			callback(false, '', affected, recordset.recordset);
+			callback(false, '', affected, recordset);
 		});
 	});
 };

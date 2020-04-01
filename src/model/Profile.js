@@ -52,6 +52,7 @@ exports.setProfileImage = (params, callback) => {
 		FILENAME: params.fileName,
 		FILETYPE: params.fileType,
 	};
+
 	let qry = '';
 	qry += 'SELECT											';
 	qry += '	PROFILE_IMAGE.ID							';
@@ -180,13 +181,15 @@ exports.getProfileData = (params, callback) => {
 	qry += 'USER_ACCOUNT.ID AS USER_ID,									';
 	qry += '	PROFILE_IMAGE.ID AS PROF_ID,   							';
 	qry += 'PROFILE_IMAGE.FILE_NAME AS PROF_IMG_NAME,					';
-	qry += '	PROFILE_BACKGROUND.ID AS BACK_ID,						';
-	qry += 'PROFILE_BACKGROUND.FILE_NAME AS BACK_IMG_NAME				';
+	qry += '	PROFILE_IMAGE.FILE_TYPE AS PROF_IMG_TYPE,				';
+	qry += 'PROFILE_BACKGROUND.ID AS BACK_ID,							';
+	qry += '	PROFILE_BACKGROUND.FILE_NAME AS BACK_IMG_NAME,			';
+	qry += 'PROFILE_BACKGROUND.FILE_TYPE AS BACK_IMG_TYPE				';
 	qry += '	FROM USER_ACCOUNT						   				';
 	qry += 'LEFT JOIN PROFILE_IMAGE						   				';
 	qry += '	ON USER_ACCOUNT.ID = PROFILE_IMAGE.USER_ID 				';
 	qry += 'LEFT JOIN PROFILE_BACKGROUND								';
-	qry += '	ON PROFILE_IMAGE.USER_ID = PROFILE_BACKGROUND.USER_ID	';
+	qry += '	ON USER_ACCOUNT.ID = PROFILE_BACKGROUND.USER_ID			';
 	qry += 'WHERE USER_ACCOUNT.ID = @USER_ID		   					';
 	qry += '	ORDER BY PROFILE_IMAGE.ID DESC			   				';
 
@@ -198,7 +201,6 @@ exports.getProfileData = (params, callback) => {
 		}
 
 		ps.input('USER_ID', db.getInput('int'));
-		console.log(qry);
 		db.execute(ps, qry, param, (recordset, affected, errExec) => {
 			if (errExec) {
 				dbConn.close();
