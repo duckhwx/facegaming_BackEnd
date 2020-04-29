@@ -51,35 +51,6 @@ exports.createPub = (params, callback) => {
 	});
 };
 
-exports.getFriends = (params, callback) => {
-	const param = {
-		ID: params.id,
-	};
-	let qry = 'SELECT						';
-	qry += '	ID, USER_ID1, USER_ID2		';
-	qry += 'FROM FRIENDS					';
-	qry += '	WHERE						';
-	qry += 'USER_ID1 = @ID OR USER_ID2 = @ID';
-
-	db.connect((dbConn, ps, err) => {
-		if (err) {
-			callback(true, err);
-			return;
-		}
-
-		ps.input('ID', db.getInput('int', '11'));
-
-		db.execute(ps, qry, param, (recordset, affected, errExec) => {
-			if (errExec) {
-				dbConn.close();
-				callback(true, 'Voce nao tem amigos');
-				return;
-			}
-			callback(false, '', affected, recordset);
-		});
-	});
-};
-
 exports.getPublications = (params, callback) => {
 	const param = {
 		USER_ID: params.id,
@@ -228,7 +199,7 @@ exports.getFiles = (params, callback) => {
 	});
 };
 
-exports.deleteFiles = (params, callback) => {
+exports.deleteFile = (params, callback) => {
 	const param = {
 		IDS: params,
 	};
@@ -285,6 +256,68 @@ exports.updatePubText = (params, callback) => {
 			}
 
 			callback(false, 'Publicação Atualizada');
+		});
+	});
+};
+
+exports.deletePublication = (params, callback) => {
+	const param = {
+		PUB_ID: params,
+	};
+	let qry = '';
+	qry += 'DELETE			';
+	qry += '	FROM		';
+	qry += 'PUBLICATION		';
+	qry += '	WHERE		';
+	qry += 'ID = @PUB_ID	';
+
+	db.connect((dbConn, ps, err) => {
+		if (err) {
+			callback(true, err);
+			return;
+		}
+
+		ps.input('PUB_ID', db.getInput('int'));
+
+		db.execute(ps, qry, param, (recordset, affected, errExec) => {
+			if (errExec) {
+				dbConn.close();
+				callback(true, 'Houve um erro ao excluir a publicação');
+				return;
+			}
+
+			callback(false, 'deu bom tecjonson');
+		});
+	});
+};
+
+exports.deleteAllFiles = (params, callback) => {
+	const param = {
+		PUB_ID: params,
+	};
+	let qry = '';
+	qry += 'DELETE						';
+	qry += '	FROM					';
+	qry += 'FILE_PUB					';
+	qry += '	WHERE					';
+	qry += 'PUBLICATION_ID = @PUB_ID	';
+
+	db.connect((dbConn, ps, err) => {
+		if (err) {
+			callback(true, err);
+			return;
+		}
+
+		ps.input('PUB_ID', db.getInput('int'));
+
+		db.execute(ps, qry, param, (recordsetFile, affectedFile, errExecFile) => {
+			if (errExecFile) {
+				dbConn.close();
+				callback(true, 'Houve um erro ao excluir a publicação');
+				return;
+			}
+
+			callback(false, 'Publicação excluida', recordsetFile.rowsAffected, recordsetFile.recordset);
 		});
 	});
 };

@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 const base64 = require('file-base64');
 const fs = require('fs');
-const image2base64 = require('image-to-base64');
 const path = require('path');
 const db = require('../banco/Sql');
 
@@ -97,4 +96,75 @@ exports.clearFiles = (pathPub, deletedFiles) => {
 			}
 		}
 	});
+};
+
+exports.clearFolder = (pathPub) => {
+	if (!fs.existsSync(pathPub)) {
+		return;
+	}
+	fs.readdir(pathPub, (err, files) => {
+		if (files) {
+			for (let index = 0; index < files.length; index += 1) {
+				const file = files[index];
+
+				fs.unlinkSync(path.join(`${pathPub}/${file}`));
+			}
+		}
+		fs.rmdirSync(pathPub);
+	});
+};
+
+exports.getFriends = (params, callback) => {
+	const param = {
+		ID: params.id,
+		STATUSFRIEND: params.statusFriend,
+	};
+	let qry = 'SELECT							';
+	qry += '	ID, SENDER, RECEIVER, STATUS	';
+	qry += 'FROM FRIENDS						';
+	qry += '	WHERE							';
+	qry += '(SENDER = @ID OR RECEIVER = @ID)	';
+	qry += '	AND STATUS = @STATUSFRIEND		';
+
+	db.connect((dbConn, ps, err) => {
+		if (err) {
+			callback(true, err);
+			return;
+		}
+
+		ps.input('ID', db.getInput('int'));
+		ps.input('STATUSFRIEND', db.getInput('varchar', '1'));
+
+		db.execute(ps, qry, param, (recordset, affected, errExec) => {
+			if (errExec) {
+				dbConn.close();
+				callback(true, 'Houve um erro ao coletar os amigos');
+				return;
+			}
+
+			if (recordset.rowsAffected < 1) {
+				dbConn.close();
+				callback(false, '', recordset.rowsAffected);
+				return;
+			}
+
+			callback(false, '', recordset.rowsAffected, recordset.recordset);
+		});
+	});
+};
+
+exports.separateFriends = (params) => {
+	const usersId = [];
+	for (let index = 0; index < params.friends.length; index += 1) {
+		const row = params.friends[index];
+
+		if (row.SENDER !== params.userId) {
+			usersId.push(row.SENDER);
+		}
+		if (row.RECEIVER !== params.userId) {
+			usersId.push(row.RECEIVER);
+		}
+	}
+
+	return usersId;
 };

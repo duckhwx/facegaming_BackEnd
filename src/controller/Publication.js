@@ -82,7 +82,7 @@ router.post('/deleteFilesFromPubs', (req, res) => {
 		splittedFiles.fileNames.push(file.name);
 	}
 
-	Publication.deleteFiles(splittedFiles.ids, (status, responseMessage, totalRecords, result) => {
+	Publication.deleteFile(splittedFiles.ids, (status, responseMessage, totalRecords, result) => {
 		response = {
 			error: status,
 			message: responseMessage,
@@ -176,11 +176,12 @@ router.get('/selectPubs/:start', (req, res) => {
 
 	const params = {
 		id: userData.ID,
+		statusFriend: 'A',
 		usersId: [],
 		start,
 	};
 
-	Publication.getFriends(params, (status, responseMessage, totalRecords, result) => {
+	utils.getFriends(params, (status, responseMessage, totalRecords, result) => {
 		response = {
 			error: status,
 			message: responseMessage,
@@ -189,17 +190,19 @@ router.get('/selectPubs/:start', (req, res) => {
 		};
 
 		if (status) {
-			res.send(response.error);
+			res.send(response);
 			return;
 		}
 
-		result.recordset.forEach((friends) => {
-			if (friends.USER_ID1 !== params.id) {
-				params.usersId.push(friends.USER_ID1);
-				return;
-			}
+		if (totalRecords < 1) {
+			response.message = 'Você não possui amigos';
+			res.send(response);
+			return;
+		}
 
-			params.usersId.push(friends.USER_ID2);
+		params.usersId = utils.separateFriends({
+			userId: params.id,
+			friends: result,
 		});
 
 		Publication.getPublications(params, (statusPubs, responseMessagePubs, totalRecordsPubs, resultPubs) => {
@@ -336,7 +339,7 @@ router.get('/selectPub/:pubId', (req, res) => {
 			publication.files = resultFile.recordset;
 			const pathPubFiles = path.join(__dirname, `../../uploads/publications/${pubId}`);
 
-			async.eachOf(publication.files, (file, key, callback) => {
+			async.each(publication.files, (file, callback) => {
 				const image = {
 					pathImg: path.join(`${pathPubFiles}/${file.FILE_NAME}`),
 					type: file.FILE_TYPE,
@@ -363,7 +366,7 @@ router.post('/uploadFile', multer(upload).array('files', 4), (req, res) => {
 	let response = {
 		error: false,
 		message: '',
-		total: 1,
+		total: 0,
 		data: '',
 	};
 	let validation = true;
@@ -402,6 +405,48 @@ router.post('/uploadFile', multer(upload).array('files', 4), (req, res) => {
 			message: 'Publicação cadastrada',
 		};
 		res.send(resp);
+	});
+});
+
+router.delete('/deletePub/:pubId', (req, res) => {
+	let response = {
+		error: false,
+		message: '',
+		total: 0,
+		data: '',
+	};
+
+	const { pubId } = req.params;
+
+	Publication.deletePublication(pubId, (status, responseMessage, totalRecords, result) => {
+		response = {
+			error: status,
+			message: responseMessage,
+			total: totalRecords,
+			data: result,
+		};
+
+		if (status) {
+			res.send(response);
+			return;
+		}
+
+		utils.clearFolder(path.join(__dirname, `../../uploads/publications/${pubId}`));
+
+		Publication.deleteAllFiles(pubId, (statusFile, responseMessageFile, totalRecordsFile, resultFile) => {
+			response = {
+				error: statusFile,
+				message: responseMessageFile,
+				total: totalRecordsFile,
+				data: resultFile,
+			};
+
+			if (statusFile) {
+				res.send(response);
+				return;
+			}
+			res.send(response);
+		});
 	});
 });
 module.exports = router;
