@@ -34,42 +34,15 @@ exports.updateFriends = (params, callback) => {
 	});
 };
 
-exports.getSendFriends = (params, callback) => {
-	let qry = '';
-	qry += 'SELECT									';
-	qry += '	SENDER, RECEIVER, STATUS			';
-	qry += 'FROM									';
-	qry += '	FRIENDS								';
-	qry += 'WHERE									';
-	qry += `	SENDER = ${params.id} AND			`;
-	qry += 'STATUS = \'P\'							';
-
-	db.connect((dbConn, ps, err) => {
-		if (err) {
-			callback(true, '');
-			return;
-		}
-
-		db.execute(ps, qry, null, (recordset, affected, errExec) => {
-			if (errExec) {
-				dbConn.close();
-				callback(true, 'Erro ao coletar as solicitações de amizades enviadas');
-				return;
-			}
-
-			callback(false, '', recordset.rowsAffected, recordset.recordset);
-		});
-	});
-};
 exports.getPedingFriends = (params, callback) => {
 	let qry = '';
-	qry += 'SELECT									';
-	qry += '	SENDER, RECEIVER, STATUS			';
-	qry += 'FROM									';
-	qry += '	FRIENDS								';
-	qry += 'WHERE									';
-	qry += `	RECEIVER = ${params.id} AND	`;
-	qry += 'STATUS = \'P\'							';
+	qry += 'SELECT														';
+	qry += '	SENDER, RECEIVER, STATUS								';
+	qry += 'FROM														';
+	qry += '	FRIENDS													';
+	qry += 'WHERE														';
+	qry += `	(RECEIVER = ${params.id} OR SENDER = ${params.id}) AND	`;
+	qry += 'STATUS = \'P\'												';
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
@@ -147,36 +120,6 @@ exports.addFriend = (params, callback) => {
 	});
 };
 
-exports.cancelFriends = (params, userData, callback) => {
-	let qry = '';
-	qry += 'UPDATE											 		';
-	qry += '	FRIENDS												';
-	qry += 'SET 								 						';
-	qry += '	REQUEST_STATUS = \'C\'					';
-	qry += 'WHERE 												 	';
-	qry += `	USER_ID2 = ${params.friendId}	`;
-	console.log(qry);
-
-	db.connect((dbConn, ps, err) => {
-		if (err) {
-			dbConn.close();
-			callback(true, err);
-			return;
-		}
-		console.log(qry);
-		db.execute(ps, qry, null, (recordset, affected, errExec) => {
-			const data = recordset;
-
-			if (errExec) {
-				dbConn.close();
-				callback(true, 'Erro ao tentar alguma coisa, contate o TI');
-				return;
-			}
-			callback(false, 'Dados atualizados com sucessso!', null, data.recordset);
-		});
-	});
-};
-
 exports.verifyUser = (params, callback) => {
 	const param = {
 		NICKNAME: params.nickname,
@@ -211,6 +154,33 @@ exports.verifyUser = (params, callback) => {
 			}
 
 			callback(false, '', recordset.rowsAffected, recordset.recordset[0]);
+		});
+	});
+};
+
+exports.deleteFriend = (params, callback) => {
+	let qry = '';
+	qry += 'DELETE																';
+	qry += '	FROM															';
+	qry += 'FRIENDS																';
+	qry += '	WHERE															';
+	qry += `(SENDER = ${params.userId} AND RECEIVER = ${params.friendId}) OR	`;
+	qry += `	(RECEIVER = ${params.userId} AND SENDER = ${params.friendId})	`;
+
+	db.connect((dbConn, ps, err) => {
+		if (err) {
+			callback(true, '');
+			return;
+		}
+
+		db.execute(ps, qry, null, (recordset, affected, errExec) => {
+			if (errExec || recordset.rowsAffected < 1) {
+				dbConn.close();
+				callback(true, 'Houve um erro ao excluir o amigo');
+				return;
+			}
+
+			callback(false, 'Amizade desfeita', recordset.rowsAffected, recordset.recordset);
 		});
 	});
 };

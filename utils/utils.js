@@ -75,6 +75,7 @@ exports.imgsToBase64Pubs = async (pubId, files) => new Promise((resolve, reject)
 
 exports.imgToBase64 = (file) => new Promise((resolve, reject) => {
 	if (!fs.existsSync(file.pathImg)) {
+		console.log(file.pathImg);
 		resolve('');
 	}
 	base64.encode(file.pathImg, (err, fileBase64) => {

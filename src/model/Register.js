@@ -31,7 +31,7 @@ exports.newUser = (params, callback) => {
 				callback(true, 'Erro ao Cadastrar');
 				return;
 			}
-			console.log(affected);
+
 			callback(false, 'Cadastrado com Sucesso');
 		});
 	});

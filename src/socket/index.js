@@ -23,7 +23,6 @@ module.exports = (io) => {
 				if (response.total < 1) {
 					return;
 				}
-
 				// eslint-disable-next-line no-prototype-builtins
 				if (connectedUsers.hasOwnProperty(response.data.SOCKET_ID)) {
 					connectedUsers[response.data.SOCKET_ID].emit('inviteUser');

@@ -1,7 +1,7 @@
+/* eslint-disable no-param-reassign */
 const express = require('express');
 const async = require('async');
 const path = require('path');
-const moment = require('moment');
 const Friends = require('../model/Friends');
 const utils = require('../../utils/utils');
 
@@ -22,6 +22,7 @@ router.get('/selectFriends', (req, res) => {
 		id: userData.ID,
 		usersId: [],
 	};
+
 	Friends.updateFriends(params, (status, responseMessage, totalRecords, result) => {
 		response = {
 			error: status,
@@ -29,7 +30,7 @@ router.get('/selectFriends', (req, res) => {
 			total: totalRecords,
 			data: result,
 		};
-		//	console.log(response);
+
 		res.send(response);
 	});
 });
@@ -107,79 +108,6 @@ router.get('/getAddedFriends', (req, res) => {
 	});
 });
 
-router.get('/getSendFriends', (req, res) => {
-	let response = {
-		error: false,
-		message: '',
-		total: 1,
-		data: '',
-	};
-
-	const { token } = req.headers;
-	const { userData } = utils.decodeJwt(token);
-
-	const params = {
-		id: userData.ID,
-		statusFriend: 'P',
-		usersId: [],
-	};
-
-	Friends.getSendFriends(params, (status, responseMessage, totalRecords, result) => {
-		response = {
-			error: status,
-			message: responseMessage,
-			total: totalRecords,
-			data: result,
-		};
-
-		if (status) {
-			res.send(response);
-			return;
-		}
-
-		if (totalRecords < 1) {
-			response.message = 'Você não possui nenhum pedido de amizade enviado';
-			res.send(response);
-			return;
-		}
-
-		params.usersId = utils.separateFriends({
-			userId: params.id,
-			friends: result,
-		});
-
-		Friends.getFriendsData(params, (statusFriends, responseMessageFriends, totalRecordsFriends, resultFriends) => {
-			response = {
-				error: statusFriends,
-				message: responseMessageFriends,
-				total: totalRecordsFriends,
-				data: resultFriends,
-			};
-
-			if (statusFriends) {
-				res.send(response);
-				return;
-			}
-
-			async.each(response.data, (friend, callback) => {
-				const file = {
-					pathImg: path.join(__dirname, `../../uploads/profile/${friend.ID}/${friend.FILE_NAME}`),
-					type: friend.FILE_TYPE,
-				};
-				utils.imgToBase64(file)
-					.then((img) => {
-						// eslint-disable-next-line no-param-reassign
-						friend.PROFILE_IMG = img;
-						callback(null);
-					});
-			},
-			() => {
-				res.send(response);
-			});
-		});
-	});
-});
-
 router.get('/getPedingFriends', (req, res) => {
 	let response = {
 		error: false,
@@ -216,6 +144,26 @@ router.get('/getPedingFriends', (req, res) => {
 			return;
 		}
 
+		const userIdentifier = [];
+
+		for (let index = 0; index < result.length; index += 1) {
+			const row = result[index];
+
+			if (row.SENDER === params.id) {
+				userIdentifier.push({
+					id: row.RECEIVER,
+					type: 'R',
+				});
+			}
+
+			if (row.RECEIVER === params.id) {
+				userIdentifier.push({
+					id: row.SENDER,
+					type: 'S',
+				});
+			}
+		}
+
 		params.usersId = utils.separateFriends({
 			userId: params.id,
 			friends: result,
@@ -241,7 +189,12 @@ router.get('/getPedingFriends', (req, res) => {
 				};
 				utils.imgToBase64(file)
 					.then((img) => {
-						// eslint-disable-next-line no-param-reassign
+						for (let index = 0; index < userIdentifier.length; index += 1) {
+							const ui = userIdentifier[index];
+							if (friend.ID === ui.id) {
+								friend.TYPE = ui.type;
+							}
+						}
 						friend.PROFILE_IMG = img;
 						callback(null);
 					});
@@ -263,6 +216,7 @@ router.put('/addFriend', (req, res) => {
 
 	const { token } = req.headers;
 	const { userData } = utils.decodeJwt(token);
+
 	const params = {
 		friendId: req.body.friendId,
 		userId: userData.ID,
@@ -280,25 +234,29 @@ router.put('/addFriend', (req, res) => {
 	});
 });
 
-router.put('/cancelFriends', (req, res) => {
+router.delete('/deleteFriend/:userId', (req, res) => {
 	let response = {
 		error: false,
 		message: '',
-		total: 1,
+		total: 0,
 		data: '',
 	};
 
-	const params = req.body;
 	const { token } = req.headers;
 	const { userData } = utils.decodeJwt(token);
+	const params = {
+		userId: userData.ID,
+		friendId: req.params.userId,
+	};
 
-	Friends.cancelFriends(params, userData, (status, responseMessage, totalRecords, result) => {
+	Friends.deleteFriend(params, (status, responseMessage, totalRecords, result) => {
 		response = {
 			error: status,
 			message: responseMessage,
 			total: totalRecords,
 			data: result,
 		};
+
 		res.send(response);
 	});
 });
@@ -342,10 +300,33 @@ router.post('/inviteUser', (req, res) => {
 				error: statusInvite,
 				message: responseMessageInvite,
 				total: totalRecordsInvite,
-				data: params.userId2,
+				data: resultInvite,
 			};
 
-			res.send(response);
+			if (statusInvite) {
+				res.send(response);
+				return;
+			}
+
+			Friends.getFriendsData({ usersId: params.receiver }, (statusData, responseMessageData, totalRecordsData, resultData) => {
+				// eslint-disable-next-line prefer-destructuring
+				response.data = resultData[0];
+
+				if (statusData) {
+					res.send(response);
+					return;
+				}
+
+				const file = {
+					pathImg: path.join(__dirname, `../../uploads/profile/${response.data.ID}/${response.data.FILE_NAME}`),
+					type: response.data.FILE_TYPE,
+				};
+				utils.imgToBase64(file)
+					.then((img) => {
+						response.data.PROFILE_IMG = img;
+						res.send(response);
+					});
+			});
 		});
 	});
 });
