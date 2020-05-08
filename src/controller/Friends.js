@@ -7,23 +7,15 @@ const utils = require('../../utils/utils');
 
 const router = express.Router();
 
-router.get('/selectFriends', (req, res) => {
+router.get('/getFriendData/:id', (req, res) => {
 	let response = {
 		error: false,
 		message: '',
-		total: 1,
+		total: 0,
 		data: '',
 	};
 
-	const { token } = req.headers;
-	const { userData } = utils.decodeJwt(token);
-
-	const params = {
-		id: userData.ID,
-		usersId: [],
-	};
-
-	Friends.updateFriends(params, (status, responseMessage, totalRecords, result) => {
+	Friends.getFriendData({ usersId: req.params.id }, (status, responseMessage, totalRecords, result) => {
 		response = {
 			error: status,
 			message: responseMessage,
@@ -31,7 +23,21 @@ router.get('/selectFriends', (req, res) => {
 			data: result,
 		};
 
-		res.send(response);
+		if (status) {
+			res.send(response);
+			return;
+		}
+
+		const file = {
+			pathImg: path.join(__dirname, `../../uploads/profile/${response.data.ID}/${response.data.FILE_NAME}`),
+			type: response.data.FILE_TYPE,
+		};
+
+		utils.imgToBase64(file)
+			.then((img) => {
+				response.data.PROFILE_IMG = img;
+				res.send(response);
+			});
 	});
 });
 
@@ -39,7 +45,7 @@ router.get('/getAddedFriends', (req, res) => {
 	let response = {
 		error: false,
 		message: '',
-		total: 1,
+		total: 0,
 		data: '',
 	};
 

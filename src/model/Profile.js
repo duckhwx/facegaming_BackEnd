@@ -2,12 +2,12 @@ const db = require('../../banco/Sql');
 
 exports.updateProfile = (params, callback) => {
 	const param = {
-		USERNAME: params.user,
+		ID: params.id,
+		USERNAME: params.username,
 		EMAIL: params.email,
 		NAME: params.name,
 		LASTNAME: params.lastName,
 		COUNTRY: params.country,
-		ID: params.id,
 	};
 
 	let qry = '';
@@ -22,7 +22,6 @@ exports.updateProfile = (params, callback) => {
 
 	db.connect((dbConn, ps, err) => {
 		if (err) {
-			dbConn.close();
 			callback(true, err);
 			return;
 		}
@@ -32,16 +31,16 @@ exports.updateProfile = (params, callback) => {
 		ps.input('NAME', db.getInput('varchar', '24'));
 		ps.input('LASTNAME', db.getInput('varchar', '24'));
 		ps.input('COUNTRY', db.getInput('varchar', '60'));
-		ps.input('ID', db.getInput('int', '11'));
+		ps.input('ID', db.getInput('int'));
 
 		db.execute(ps, qry, param, (recordset, affected, errExec) => {
 			if (errExec) {
 				dbConn.close();
-				callback(true, 'Erro ao Atualizar Dados');
+				callback(true, 'Erro ao atualizar os dados');
 				return;
 			}
 
-			callback(false, 'Atualização de Dados com Sucesso');
+			callback(false, 'Dados do perfil atualizados', recordset.rowsAffected, recordset.recordset);
 		});
 	});
 };
@@ -215,6 +214,33 @@ exports.getProfileData = (params, callback) => {
 			}
 
 			callback(false, '', affected, recordset.recordset[0]);
+		});
+	});
+};
+
+exports.getProfileInfo = (params, callback) => {
+	let qry = '';
+	qry += 'SELECT													';
+	qry += '	USERNAME, PASSWORD, EMAIL, NAME, LASTNAME, COUNTRY	';
+	qry += 'FROM													';
+	qry += '	USER_ACCOUNT										';
+	qry += 'WHERE													';
+	qry += `	ID = ${params}										`;
+
+	db.connect((dbConn, ps, err) => {
+		if (err) {
+			callback(true, '');
+			return;
+		}
+
+		db.execute(ps, qry, null, (recordset, affected, errExec) => {
+			if (errExec || recordset.rowsAffected < 1) {
+				dbConn.close();
+				callback(true, 'Houve um erro ao coletar os dados do usuário');
+				return;
+			}
+
+			callback(false, '', recordset.rowsAffected, recordset.recordset[0]);
 		});
 	});
 };

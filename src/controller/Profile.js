@@ -30,7 +30,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-router.post('/', (req, res) => {
+router.post('/updateUserData', (req, res) => {
 	let response = {
 		error: false,
 		message: '',
@@ -42,12 +42,12 @@ router.post('/', (req, res) => {
 	const { userData } = utils.decodeJwt(token);
 
 	const params = {
-		user: req.body.user,
+		id: userData.ID,
+		username: req.body.username,
 		email: req.body.email,
 		name: req.body.name,
 		lastName: req.body.lastName,
 		country: req.body.country,
-		id: userData.ID,
 	};
 
 	Profile.updateProfile(params, (status, responseMessage, totalRecords, result) => {
@@ -57,8 +57,9 @@ router.post('/', (req, res) => {
 			total: totalRecords,
 			data: result,
 		};
+
+		res.send(response);
 	});
-	res.send(response);
 });
 
 router.post('/setProfImg', upload.single('image'), (req, res) => {
@@ -236,4 +237,28 @@ router.get('/getProfileData', (req, res) => {
 		});
 	});
 });
+
+router.get('/getProfileInfo', (req, res) => {
+	let response = {
+		error: false,
+		message: '',
+		total: 0,
+		data: '',
+	};
+
+	const { token } = req.headers;
+	const { userData } = utils.decodeJwt(token);
+
+	Profile.getProfileInfo(userData.ID, (status, responseMessage, totalRecords, result) => {
+		response = {
+			error: status,
+			message: responseMessage,
+			total: totalRecords,
+			data: result,
+		};
+
+		res.send(response);
+	});
+});
+
 module.exports = router;

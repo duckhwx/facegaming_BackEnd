@@ -1,39 +1,5 @@
 const db = require('../../banco/Sql');
 
-exports.updateFriends = (params, callback) => {
-	// Lista amigos pendentes
-	let qry = '';
-	qry += 'SELECT														 				';
-	qry += '	U.USERNAME AS USERNAME,									';
-	qry += '	U.ID AS ID,															';
-	qry += '	U.NAME AS NAME,													';
-	qry += '	U.LASTNAME AS LASTN 										';
-	qry += 'FROM 															 				';
-	qry += '	USER_ACCOUNT U									 				';
-	qry += 'INNER JOIN												 				';
-	qry += '	FRIENDS F ON										 				';
-	qry += '	U.ID = F.USER_ID2								 				';
-	qry += 'AND															 					';
-	qry += '	F.REQUEST_STATUS = \'P\';									';
-
-	db.connect((dbConn, ps, err) => {
-		if (err) {
-			callback(true, err);
-			return;
-		}
-		db.execute(ps, qry, null, (recordset, affected, errExec) => {
-			const data = recordset;
-
-			if (errExec) {
-				dbConn.close();
-				callback(true, 'Erro ao tentar alguma coisa, contate o TI');
-				return;
-			}
-			callback(false, 'Dados atualizados com sucessso!', null, data.recordset);
-		});
-	});
-};
-
 exports.getPedingFriends = (params, callback) => {
 	let qry = '';
 	qry += 'SELECT														';
@@ -58,6 +24,39 @@ exports.getPedingFriends = (params, callback) => {
 			}
 
 			callback(false, '', recordset.rowsAffected, recordset.recordset);
+		});
+	});
+};
+
+exports.getFriendData = (params, callback) => {
+	let qry = '';
+	qry += 'SELECT										';
+	qry += '	USER_ACCOUNT.ID,						';
+	qry += 'USER_ACCOUNT.NAME,							';
+	qry += '	PROFILE_IMAGE.FILE_NAME,				';
+	qry += '	PROFILE_IMAGE.FILE_TYPE					';
+	qry += ' FROM										';
+	qry += '	USER_ACCOUNT							';
+	qry += 'LEFT JOIN									';
+	qry += '	PROFILE_IMAGE ON						';
+	qry += 'PROFILE_IMAGE.USER_ID = USER_ACCOUNT.ID		';
+	qry += '	WHERE									';
+	qry += `USER_ACCOUNT.ID = ${params.usersId}			`;
+
+	db.connect((dbConn, ps, err) => {
+		if (err) {
+			callback(true, err);
+			return;
+		}
+
+		db.execute(ps, qry, null, (recordset, affected, errExec) => {
+			if (errExec) {
+				dbConn.close();
+				callback(true, 'Erro ao selecionar os dados de amigos');
+				return;
+			}
+
+			callback(false, '', recordset.rowsAffected, recordset.recordset[0]);
 		});
 	});
 };
@@ -150,6 +149,12 @@ exports.verifyUser = (params, callback) => {
 			if (recordset.rowsAffected < 1) {
 				dbConn.close();
 				callback(true, 'Usuário inexistente');
+				return;
+			}
+
+			if (recordset.recordset[0].ID === params.userId) {
+				dbConn.close();
+				callback(true, 'Este é seu nome de usuário');
 				return;
 			}
 

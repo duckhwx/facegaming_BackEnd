@@ -1,3 +1,4 @@
+/* eslint-disable no-prototype-builtins */
 const Socket = require('../controller/Socket');
 
 module.exports = (io) => {
@@ -18,14 +19,39 @@ module.exports = (io) => {
 			});
 		});
 
-		socket.on('inviteUser', (userId) => {
-			Socket.getSocketData(userId, (response) => {
+		socket.on('inviteUser', (object) => {
+			Socket.getSocketData(object.socketUserId, (response) => {
 				if (response.total < 1) {
 					return;
 				}
-				// eslint-disable-next-line no-prototype-builtins
+
 				if (connectedUsers.hasOwnProperty(response.data.SOCKET_ID)) {
-					connectedUsers[response.data.SOCKET_ID].emit('inviteUser');
+					connectedUsers[response.data.SOCKET_ID].emit('inviteUser', object.userSenderId);
+				}
+			});
+		});
+
+		socket.on('inviteResponse', (object) => {
+			Socket.getSocketData(object.socketUserId, (response) => {
+				if (response.total < 1) {
+					return;
+				}
+
+				if (connectedUsers.hasOwnProperty(response.data.SOCKET_ID)) {
+					connectedUsers[response.data.SOCKET_ID].emit('inviteResponse', object);
+				}
+			});
+		});
+
+		socket.on('deleteFriend', (object) => {
+			Socket.getSocketData(object.socketUserId, (response) => {
+				if (response.total < 1) {
+					return;
+				}
+
+				if (connectedUsers.hasOwnProperty(response.data.SOCKET_ID)) {
+					console.log(connectedUsers[response.data.SOCKET_ID]);
+					connectedUsers[response.data.SOCKET_ID].emit('deleteFriend', object);
 				}
 			});
 		});
@@ -35,6 +61,7 @@ module.exports = (io) => {
 			const params = {
 				socketId: socket.id,
 			};
+
 			Socket.unsetSocket(params, (response) => {
 			});
 		});
